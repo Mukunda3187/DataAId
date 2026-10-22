@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-primary: #086288;
+  --color-brand-secondary: #4D8DBA;
+  --color-brand-light: #97D7FF;
+  --color-brand-cream: #FFEFC4;
+  --color-brand-dark: #053b53;
+  --color-brand-surface: #F8FAFC;
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased font-sans selection:bg-[#97D7FF]/30;
+  }
+}
