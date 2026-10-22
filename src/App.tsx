@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Sidebar, ActivePage } from './components/Sidebar';
 import { Header } from './components/Header';
 import { OverviewPage } from './pages/OverviewPage';
@@ -12,6 +12,28 @@ import {
 export default function App() {
   const [activePage, setActivePage] = useState<ActivePage>('overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  // Sidebar starts at 288px and can only be narrowed by dragging its right edge.
+  const [sidebarWidth, setSidebarWidth] = useState(288);
+  const dragStartRef = useRef<{ x: number; width: number } | null>(null);
+
+  const handleSidebarResizeStart = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    dragStartRef.current = { x: event.clientX, width: sidebarWidth };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }, [sidebarWidth]);
+
+  const handleSidebarResizeMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragStartRef.current) return;
+    const deltaX = event.clientX - dragStartRef.current.x;
+    // Dragging left shrinks the sidebar; dragging right never makes it wider.
+    const nextWidth = Math.max(180, Math.min(dragStartRef.current.width, dragStartRef.current.width + deltaX));
+    setSidebarWidth(nextWidth);
+  }, []);
+
+  const handleSidebarResizeEnd = useCallback(() => {
+    dragStartRef.current = null;
+  }, []);
   const [currentAnalysis, setCurrentAnalysis] = useState<AnalysisResult | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
@@ -197,11 +219,18 @@ export default function App() {
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
           unresolvedCount={unresolvedCount}
+          width={sidebarWidth}
+          onResizeStart={handleSidebarResizeStart}
+          onResizeMove={handleSidebarResizeMove}
+          onResizeEnd={handleSidebarResizeEnd}
         />
       )}
 
       {/* Main Content Area */}
-      <div className={`${currentAnalysis ? 'lg:pl-72' : ''} flex-1 flex flex-col min-w-0 transition-all`}>
+      <div
+        className={`flex-1 flex flex-col min-w-0 transition-[padding] duration-75 ${currentAnalysis ? 'lg:pl-[var(--dataaid-sidebar-width)]' : ''}`}
+        style={{ '--dataaid-sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}
+      >
         <Header
           onOpenSidebar={() => setIsSidebarOpen(true)}
           onNavigateHome={() => setActivePage('overview')}
