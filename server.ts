@@ -557,10 +557,27 @@ async function startServer() {
       });
     } else if (bulkAction === 'approve_column' && columnName) {
       let count = 0;
+      // Include corrections linked to an issue in this column as well as those
+      // whose own column field matches. Apply the proposed value just like the
+      // individual Approve action does.
       analysis.corrections.forEach(c => {
-        if (c.column === columnName && c.status === 'pending') { c.status = 'approved'; count++; }
+        const linkedIssue = analysis.issues.find(issue => issue.id === c.issueId);
+        const belongsToColumn = c.column === columnName || linkedIssue?.column === columnName;
+        if (!belongsToColumn || c.status !== 'pending') return;
+
+        const finalValue = c.editedValue !== undefined ? c.editedValue : c.proposedValue;
+        // Do not approve a missing-value correction with an empty replacement.
+        if (finalValue === undefined || finalValue === null || String(finalValue).trim() === '') return;
+
+        c.status = 'approved';
+        const rowIndex = c.rowRef - 1;
+        if (finalValue !== 'DROP_ROW' && analysis.rawRows[rowIndex] &&
+            c.column !== 'Entire Row' && c.column !== 'All Columns (Full Record)') {
+          analysis.rawRows[rowIndex][c.column || columnName] = finalValue;
+        }
+        count++;
       });
-      analysis.historyLog.push({ hash: generateCommitHash(), timestamp: new Date().toISOString(), action: `Approved All in Column "${columnName}" (${count})`, author: 'User (Action)', details: `Approved ${count} pending corrections in column "${columnName}".`, type: 'approval', stats: { appliedCount: count } });
+      analysis.historyLog.push({ hash: generateCommitHash(), timestamp: new Date().toISOString(), action: `Approved All in Column "${columnName}" (${count})`, author: 'User (Action)', details: `Approved and applied ${count} pending corrections in column "${columnName}". Empty replacement values were left pending.`, type: 'approval', stats: { appliedCount: count } });
     } else if (bulkAction === 'reject_column' && columnName) {
       let count = 0;
       analysis.corrections.forEach(c => {
