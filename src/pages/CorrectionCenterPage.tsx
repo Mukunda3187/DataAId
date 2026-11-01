@@ -532,11 +532,10 @@ export const CorrectionCenterPage: React.FC<CorrectionCenterPageProps> = ({
                                   onMouseLeave={() => setColumnDropdownOpen(null)}
                                 >
                                   <button
-                                    onMouseDown={e => {
+                                    onClick={async e => {
                                       e.preventDefault();
                                       e.stopPropagation();
-                                      takeSnapshot();
-                                      handleUpdateWithHistory({ bulkAction: 'approve_column', columnName: col });
+                                      await handleUpdateWithHistory({ bulkAction: 'approve_column', columnName: col });
                                       setColumnDropdownOpen(null);
                                     }}
                                     className="w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 text-emerald-700 font-semibold transition cursor-pointer flex items-center gap-2"
@@ -545,11 +544,10 @@ export const CorrectionCenterPage: React.FC<CorrectionCenterPageProps> = ({
                                     Approve all in column
                                   </button>
                                   <button
-                                    onMouseDown={e => {
+                                    onClick={async e => {
                                       e.preventDefault();
                                       e.stopPropagation();
-                                      takeSnapshot();
-                                      handleUpdateWithHistory({ bulkAction: 'reject_column', columnName: col });
+                                      await handleUpdateWithHistory({ bulkAction: 'reject_column', columnName: col });
                                       setColumnDropdownOpen(null);
                                     }}
                                     className="w-full text-left px-3 py-2 text-xs hover:bg-rose-50 text-rose-700 font-semibold transition cursor-pointer flex items-center gap-2"
