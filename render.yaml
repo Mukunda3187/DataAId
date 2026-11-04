@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: dataaid
+    runtime: node
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/status
+    disk:
+      name: dataaid-files
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_STORAGE_DIR
+        value: /var/data/dataaid-uploads
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dataaid-db
+          property: connectionString
+      - key: DATABASE_SSL
+        value: "true"
+      - key: GEMINI_API_KEY_1
+        sync: false
+      - key: GEMINI_API_KEY_2
+        sync: false
+      - key: GEMINI_API_KEY_3
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: AWS_REGION
+        value: ap-south-1
+      - key: AWS_S3_BUCKET
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+
+databases:
+  - name: dataaid-db
+    plan: basic-256mb
+    databaseName: dataaid
+    user: dataaid

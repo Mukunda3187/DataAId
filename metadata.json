@@ -1,0 +1,6 @@
+{
+  "name": "DataAId — AI-Powered Data Quality Monitoring & Auto-Correction",
+  "description": "Automated data quality monitoring, profiling, GenAI issue explanations, and interactive auto-correction system.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
