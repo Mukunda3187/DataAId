@@ -571,7 +571,7 @@ async function startServer() {
       if (analysis.datasetUnderstanding && analysis.datasetUnderstanding.trim() !== '') {
         try {
           const cached = JSON.parse(analysis.datasetUnderstanding);
-          if (cached && cached.understanding) {
+          if (cached && cached.understanding && cached.provider === 'Gemini') {
             const cachedProvider = (cached.provider || 'Cached') + ' (cached)';
             return res.json({ understanding: cached.understanding, provider: cachedProvider });
           }
@@ -580,7 +580,7 @@ async function startServer() {
         }
       }
 
-      const understanding = await understandDatasetWithAI({
+      const aiResult = await understandDatasetWithAI({
         datasetName: analysis.summary.name,
         rowCount: analysis.summary.rowCount,
         columnCount: analysis.summary.columnCount,
@@ -596,11 +596,13 @@ async function startServer() {
           mean: column.mean
         }))
       });
-      const provider = isGeminiAvailable() ? 'Gemini' : 'Profile-based fallback';
+      const { understanding, provider } = aiResult;
       // Persist the generated understanding as a JSON envelope so cache hits can
       // restore the original provider label and the response shape stays unchanged.
-      analysis.datasetUnderstanding = JSON.stringify({ understanding, provider });
-      await persistentStorage.set(jobId, analysis);
+      if (provider === 'Gemini') {
+        analysis.datasetUnderstanding = JSON.stringify({ understanding, provider });
+        await persistentStorage.set(jobId, analysis);
+      }
       res.json({ understanding, provider });
     } catch (err: any) {
       res.status(500).json({ error: err.message || 'Failed to understand dataset.' });
