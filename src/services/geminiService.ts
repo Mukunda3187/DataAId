@@ -28,7 +28,7 @@ function getClientForKey(apiKey: string): GoogleGenAI {
   if (!client) {
     client = new GoogleGenAI({
       apiKey,
-      httpOptions: { headers: { 'User-Agent': 'dataaid-server' } }
+      httpOptions: { timeout: 12000, headers: { 'User-Agent': 'dataaid-server' } }
     });
     genAIClients.set(apiKey, client);
   }
@@ -68,7 +68,9 @@ async function generateContentWithFallback(params: any): Promise<any> {
         continue;
       }
       if (status === 429 || /quota|rate.?limit/i.test(message)) {
-        keyCooldowns.set(key, Date.now() + KEY_COOLDOWN_MS);
+        const retryMatch = message.match(/retry(?:Delay| in)?[^0-9]{0,25}(\d+(?:\.\d+)?)\s*s/i);
+        const retryMs = retryMatch ? Number(retryMatch[1]) * 1000 : KEY_COOLDOWN_MS;
+        keyCooldowns.set(key, Date.now() + Math.max(KEY_COOLDOWN_MS, Math.min(retryMs, 300_000)));
         continue;
       }
       // Other retryable errors (500/502/503/504, network)
@@ -97,7 +99,7 @@ async function generateContentWithFallback(params: any): Promise<any> {
 }
 
 export function isGeminiAvailable(): boolean {
-  return getGeminiApiKeys().length > 0;
+  return getGeminiApiKeys().some(key => !invalidKeys.has(key) && !isKeyInCooldown(key, Date.now()));
 }
 
 export function getGeminiKeyCount(): number {
@@ -380,7 +382,7 @@ export async function understandDatasetWithAI(input: {
     max?: number | string;
     mean?: number;
   }[];
-}): Promise<DatasetUnderstanding> {
+}): Promise<{ understanding: DatasetUnderstanding; provider: 'Gemini' | 'Profile-based fallback' }> {
   const fallback: DatasetUnderstanding = {
     datasetOverview: `The dataset "${input.datasetName}" contains ${input.rowCount} rows and ${input.columnCount} columns. It stores structured information across ${input.columns.length} fields.`,
     likelyPurpose: 'The dataset purpose could not be confidently identified from the available column names and sample values.',
@@ -394,7 +396,7 @@ export async function understandDatasetWithAI(input: {
   };
 
   const client = isGeminiAvailable();
-  if (!client) return fallback;
+  if (!client) return { understanding: fallback, provider: 'Profile-based fallback' };
 
   try {
     const prompt = `You are a data analyst. Explain this dataset in simple language for a student or business user. Use only the supplied metadata and samples. Do not invent facts, business context, or column meanings. If uncertain, clearly say so.
@@ -417,7 +419,7 @@ Include one description for every supplied column. Keep the language simple and 
     });
     const parsed = JSON.parse(response.text || '{}');
     const validColumns = Array.isArray(parsed.columnDescriptions) ? parsed.columnDescriptions : [];
-    return {
+    return { understanding: {
       datasetOverview: String(parsed.datasetOverview || fallback.datasetOverview),
       likelyPurpose: String(parsed.likelyPurpose || fallback.likelyPurpose),
       columnDescriptions: input.columns.map(column => {
@@ -431,10 +433,10 @@ Include one description for every supplied column. Keep the language simple and 
         };
       }),
       keyInsights: Array.isArray(parsed.keyInsights) ? parsed.keyInsights.map(String).slice(0, 6) : fallback.keyInsights
-    };
+    }, provider: 'Gemini' };
   } catch (error) {
     console.warn('Dataset understanding with Gemini failed; using profile-based explanation:', error);
-    return fallback;
+    return { understanding: fallback, provider: 'Profile-based fallback' };
   }
 }
 
