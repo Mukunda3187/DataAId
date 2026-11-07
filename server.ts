@@ -9,7 +9,7 @@ import { profileDataset } from './src/services/profiler';
 import { detectQualityIssues } from './src/services/qualityDetector';
 import { calculateQualityScore, DEFAULT_WEIGHTS } from './src/services/scoringEngine';
 import { generateCorrectionsFromIssues, previewCorrectionsDiff, applyApprovedCorrections } from './src/services/correctionEngine';
-import { explainQualityIssueWithAI, isGeminiAvailable, generateMissingValueAlternatesAI, understandDatasetWithAI, interpretSubsetInstruction, validateCorrection, getGeminiKeyCount } from './src/services/geminiService';
+import { explainQualityIssueWithAI, isGeminiAvailable, generateMissingValueAlternatesAI, understandDatasetWithAI, interpretSubsetInstruction, validateCorrection, getGeminiKeyCount, getGeminiModel } from './src/services/geminiService';
 
 dotenv.config();
 
@@ -324,7 +324,7 @@ async function startServer() {
       status: 'operational',
       genAiConnected: isGeminiAvailable(),
       configuredGeminiKeys: getGeminiKeyCount(),
-      model: isGeminiAvailable() ? (process.env.GEMINI_MODEL || 'gemini-2.5-flash') : 'Expert Heuristic Rule Engine (Predefined Demo Mode)',
+      model: isGeminiAvailable() ? getGeminiModel() : 'Expert Heuristic Rule Engine (Predefined Demo Mode)',
       storage: persistentStorage.provider(),
       databaseConnected: await persistentStorage.health(),
       fileStorage: fileStorageStatus(),
@@ -571,7 +571,7 @@ async function startServer() {
       if (analysis.datasetUnderstanding && analysis.datasetUnderstanding.trim() !== '') {
         try {
           const cached = JSON.parse(analysis.datasetUnderstanding);
-          if (cached && cached.understanding && cached.provider === 'Gemini') {
+          if (cached && cached.understanding) {
             const cachedProvider = (cached.provider || 'Cached') + ' (cached)';
             return res.json({ understanding: cached.understanding, provider: cachedProvider });
           }
@@ -580,7 +580,7 @@ async function startServer() {
         }
       }
 
-      const aiResult = await understandDatasetWithAI({
+      const understanding = await understandDatasetWithAI({
         datasetName: analysis.summary.name,
         rowCount: analysis.summary.rowCount,
         columnCount: analysis.summary.columnCount,
@@ -596,13 +596,11 @@ async function startServer() {
           mean: column.mean
         }))
       });
-      const { understanding, provider } = aiResult;
+      const provider = isGeminiAvailable() ? 'Gemini' : 'Profile-based fallback';
       // Persist the generated understanding as a JSON envelope so cache hits can
       // restore the original provider label and the response shape stays unchanged.
-      if (provider === 'Gemini') {
-        analysis.datasetUnderstanding = JSON.stringify({ understanding, provider });
-        await persistentStorage.set(jobId, analysis);
-      }
+      analysis.datasetUnderstanding = JSON.stringify({ understanding, provider });
+      await persistentStorage.set(jobId, analysis);
       res.json({ understanding, provider });
     } catch (err: any) {
       res.status(500).json({ error: err.message || 'Failed to understand dataset.' });
