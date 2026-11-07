@@ -1,3 +1,4 @@
+
 services:
   - type: web
     name: dataaid
@@ -28,9 +29,9 @@ services:
       - key: GEMINI_API_KEY_3
         sync: false
       - key: GEMINI_MODEL
-        value: gemini-2.5-flash
+        value: gemini-3.8-flash
       - key: AWS_REGION
-        value: ap-south-1
+        value: ap-south-2
       - key: AWS_S3_BUCKET
         sync: false
       - key: AWS_ACCESS_KEY_ID
